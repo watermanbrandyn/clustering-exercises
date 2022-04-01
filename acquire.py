@@ -20,6 +20,7 @@ def get_db_url(db_name, username=user, hostname=host, password=password):
     return url
 
 # The query needed to acquire the desired zillow data from the SQL server
+# Currently creates duplicates on parcelid
 query = '''
 SELECT  prop.*,
         pred.logerror, 
