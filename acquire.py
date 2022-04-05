@@ -19,12 +19,13 @@ def get_db_url(db_name, username=user, hostname=host, password=password):
     url = f'mysql+pymysql://{username}:{password}@{host}/{db_name}'
     return url
 
+
 # The query needed to acquire the desired zillow data from the SQL server
 # Currently creates duplicates on parcelid
 query = '''
 SELECT  prop.*,
-        pred.logerror, 
-        pred.transactiondate,
+        predictions_2017.logerror, 
+        predictions_2017.transactiondate,
         air_cond.airconditioningdesc,
         architecture.architecturalstyledesc,
         building_class.buildingclassdesc,
@@ -35,11 +36,12 @@ SELECT  prop.*,
 
 FROM properties_2017 prop
     JOIN (
-        SELECT parcelid,
-                Max(transactiondate) transactiondate
-                    FROM predictions_2017
-                    GROUP BY parcelid) pred
-                    USING (parcelid)
+        SELECT parcelid, Max(transactiondate) AS max_transactiondate
+            FROM predictions_2017
+            GROUP BY parcelid) pred
+            USING (parcelid)
+JOIN predictions_2017 ON pred.parcelid = predictions_2017.parcelid
+                      AND pred.max_transactiondate = predictions_2017.transactiondate
 LEFT JOIN airconditioningtype air_cond USING (airconditioningtypeid)
 LEFT JOIN architecturalstyletype architecture USING (architecturalstyletypeid)
 LEFT JOIN buildingclasstype building_class USING (buildingclasstypeid)
