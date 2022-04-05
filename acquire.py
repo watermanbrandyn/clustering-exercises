@@ -34,11 +34,11 @@ SELECT  prop.*,
         construct.typeconstructiondesc
 
 FROM properties_2017 prop
-    INNER JOIN (SELECT parcelid,
-                        logerror,
-                        Max(transactiondate) transactiondate
+    JOIN (
+        SELECT parcelid,
+                Max(transactiondate) transactiondate
                     FROM predictions_2017
-                    GROUP BY parcelid, logerror) pred
+                    GROUP BY parcelid) pred
                     USING (parcelid)
 LEFT JOIN airconditioningtype air_cond USING (airconditioningtypeid)
 LEFT JOIN architecturalstyletype architecture USING (architecturalstyletypeid)
