@@ -117,8 +117,31 @@ def prepare_zillow(df):
         df[col] = df[col].fillna(value=0)
     # Dropping columns and rows that do not meet 50% threshold of non-nulls
     df = handle_missing_values(df, .5, .5)
-    
-    
+    # Rows to drop bc they are not useful, redundant, or cause leakage
+    to_drop = ['id', 'parcelid', 'calculatedbathnbr', 'finishedsquarefeet12', 'lotsizesquarefeet', 'propertycountylandusecode',
+          'propertylandusetypeid', 'propertyzoningdesc', 'rawcensustractandblock', 'structuretaxvaluedollarcnt', 'taxvaluedollarcnt',
+          'assessmentyear', 'landtaxvaluedollarcnt', 'taxamount', 'censustractandblock', 'transactiondate', 'heatingorsystemdesc', 
+          'propertylandusedesc', 'buildingqualitytypeid', 'heatingorsystemtypeid', 'regionidcity', 'roomcnt', 'fullbathcnt']
+    # Dropping the rows
+    df = df.drop(columns=to_drop)
+    # Dropping data that exceeds single unit, then dropping unitcnt column
+    df = df[df.unitcnt <= 1]
+    df = df.drop(columns='unitcnt')
+    # Dropping any nulls left (~ .1% of the rows of data dropped)
+    df = df.dropna()
+    # Changing yearbuilt to new feature age and dropping yearbuilt column
+    df.yearbuilt = df.yearbuilt.astype(int)
+    df['age'] = 2017 - df
+    df = df.drop(columns='yearbuilt')
+    # Dropping columns that have 0 bedrooms or bathrooms, or square feet <= 400
+    df = df[(df.bathroomcnt > 0) & (df.bedroomcnt > 0) & (df.calculatedfinishedsquarefeet > 400)]
+    # Fips has to be converted to int, str, and concat '0' to properly format number code
+    df.fips = df.fips.astype(int)
+    df.fips = df.fips.astype(str)
+    df.fips = '0' + df.fips
+
+
+
 
 def handle_missing_values(df, prop_required_column, prop_required_row):
     '''
@@ -132,4 +155,24 @@ def handle_missing_values(df, prop_required_column, prop_required_row):
     df = df.dropna(axis=0, thresh=n_required_row)
     df = df.dropna(axis=1, thresh=n_required_column)
     # Return the dataframe
+    return df
+
+
+def remove_outliers(df, k, cols):
+    '''
+    This function takes in a dataframe, a specified 'k' value (how sensitive to make outlier detection), and a list of 
+    columns to remove outliers from. It returns the dataframe without the outliers.
+    '''
+    # Cycle through specified cols
+    for col in cols:
+        # Determine the quartiles for each column
+        q1, q3 = df[col].quantile([.25, .75])
+        # Compute the interquartile range
+        iqr = q3 - q1
+        # Calculate the upper and lower bounds
+        upper_bound = q3 + k * iqr
+        lower_bound = q1 - k * iqr
+        # Remove the outliers
+        df = df[(df[col] > lower_bound) & (df[col] < upper_bound)]
+        # Return the dataframe without outliers
     return df
