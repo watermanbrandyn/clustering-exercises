@@ -115,13 +115,14 @@ def prepare_zillow(df):
     cols = ['fireplacecnt', 'hashottuborspa', 'poolcnt', 'threequarterbathnbr', 'taxdelinquencyflag']
     for col in cols:
         df[col] = df[col].fillna(value=0)
+    df.unitcnt = df.unitcnt.fillna(value=1)
     # Dropping columns and rows that do not meet 50% threshold of non-nulls
     df = handle_missing_values(df, .5, .5)
     # Rows to drop bc they are not useful, redundant, or cause leakage
     to_drop = ['id', 'parcelid', 'calculatedbathnbr', 'finishedsquarefeet12', 'lotsizesquarefeet', 'propertycountylandusecode',
           'propertylandusetypeid', 'propertyzoningdesc', 'rawcensustractandblock', 'structuretaxvaluedollarcnt', 'taxvaluedollarcnt',
           'assessmentyear', 'landtaxvaluedollarcnt', 'taxamount', 'censustractandblock', 'transactiondate', 'heatingorsystemdesc', 
-          'propertylandusedesc', 'buildingqualitytypeid', 'heatingorsystemtypeid', 'regionidcity', 'roomcnt', 'fullbathcnt']
+          'propertylandusedesc', 'buildingqualitytypeid', 'heatingorsystemtypeid', 'regionidcity', 'roomcnt', 'fullbathcnt', 'regionidcounty']
     # Dropping the rows
     df = df.drop(columns=to_drop)
     # Dropping data that exceeds single unit, then dropping unitcnt column
@@ -131,16 +132,41 @@ def prepare_zillow(df):
     df = df.dropna()
     # Changing yearbuilt to new feature age and dropping yearbuilt column
     df.yearbuilt = df.yearbuilt.astype(int)
-    df['age'] = 2017 - df
+    df['age'] = 2017 - df.yearbuilt
     df = df.drop(columns='yearbuilt')
+    # Changing values for taxdelinquencyflag
+    df.taxdelinquencyflag = np.where(df.taxdelinquencyflag == 'Y', 1, 0)
     # Dropping columns that have 0 bedrooms or bathrooms, or square feet <= 400
     df = df[(df.bathroomcnt > 0) & (df.bedroomcnt > 0) & (df.calculatedfinishedsquarefeet > 400)]
     # Fips has to be converted to int, str, and concat '0' to properly format number code
     df.fips = df.fips.astype(int)
     df.fips = df.fips.astype(str)
     df.fips = '0' + df.fips
-
-
+    # Remove outliers based on bathrooms, bedrooms, square feet, and age of house
+    df = remove_outliers(df, 1.5, ['bathroomcnt', 'bedroomcnt', 'calculatedfinishedsquarefeet', 'age'])
+     # Changing columns to more int data type prior to change to object type (to lose the trailing 0)
+    df.poolcnt = df.poolcnt.astype(int)
+    df.hashottuborspa = df.hashottuborspa.astype(int)
+    df.regionidzip = df.regionidzip.astype(int)
+    # Changing object columns to right data type
+    object_cols = ['fips', 'hashottuborspa', 'poolcnt', 'taxdelinquencyflag', 'regionidzip']
+    for col in object_cols:
+        df[col] = df[col].astype(object)
+    # Encoding categorical columns (except regionidzip)
+    encode_cols = ['fips', 'hashottuborspa', 'poolcnt', 'taxdelinquencyflag']
+    for col in encode_cols:
+        df = pd.get_dummies(df, columns=[col])
+    # Dropping the redundant encoded columns
+    df = df.drop(columns=['hashottuborspa_0', 'poolcnt_0', 'taxdelinquencyflag_0'])
+    # Renaming our columns
+    df = df.rename(columns={'bathroomcnt': 'bathrooms',
+                       'bedroomcnt': 'bedrooms', 'calculatedfinishedsquarefeet': 'squarefeet', 'fireplacecnt': 'num_fireplace',
+                       'threequarterbathnbr': 'threequarter_baths', 'hashottuborspa_1': 'hottub_or_spa', 'poolcnt_1': 'has_pool',
+                       'taxdelinquencyflag_1': 'tax_delinquency'})
+    # Splitting our data
+    train, validate, test = zillow_split(df)
+    # Return our three dataframes (train, validate, test splits)
+    return train, validate, test
 
 
 def handle_missing_values(df, prop_required_column, prop_required_row):
@@ -176,3 +202,19 @@ def remove_outliers(df, k, cols):
         df = df[(df[col] > lower_bound) & (df[col] < upper_bound)]
         # Return the dataframe without outliers
     return df
+
+
+def zillow_split(df):
+    '''
+    This function takes in a dataframe and returns train, validate, test splits. (dataframes)
+    An initial 20% of data is split to place as 'test'.
+    A second split is performed, on the remaining 80% of original df, to split 70/30 between train and validate. 
+    '''
+    # First split with 20% going to test
+    train_validate, test = train_test_split(df, train_size = .8,
+                                            random_state=123)
+    # Second split with 70% of remainder going to train, 30% to validate
+    train, validate = train_test_split(train_validate, train_size = .7,
+                                            random_state=123)
+    # Return train, validate, test (56%, 24%, 20% splits of original df)
+    return train, validate, test
