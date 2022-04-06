@@ -111,4 +111,25 @@ def prepare_zillow(df):
     not_single = [246, 248, 247, 267, 31]
     # Removal from df
     df = df[~df.propertylandusetypeid.isin(not_single)]
+    # Changing nulls in columns where deemed appropriate
+    cols = ['fireplacecnt', 'hashottuborspa', 'poolcnt', 'threequarterbathnbr', 'taxdelinquencyflag']
+    for col in cols:
+        df[col] = df[col].fillna(value=0)
+    # Dropping columns and rows that do not meet 50% threshold of non-nulls
+    df = handle_missing_values(df, .5, .5)
     
+    
+
+def handle_missing_values(df, prop_required_column, prop_required_row):
+    '''
+    This function takes in a dataframe and the required proportion of non-nulls for column and row. It returns the dataframe after
+    dropping the columns and rows that do not meet the required proportion.
+    '''
+    # Specifying the number of columns and rows needed to meet threshold
+    n_required_column = round(df.shape[0] * prop_required_column)
+    n_required_row = round(df.shape[1] * prop_required_row)
+    # Dropping the columns and rows that do not meet the thresh value
+    df = df.dropna(axis=0, thresh=n_required_row)
+    df = df.dropna(axis=1, thresh=n_required_column)
+    # Return the dataframe
+    return df
