@@ -102,3 +102,13 @@ def nulls_by_rows(df):
 #---------------Preparation
 
 
+def prepare_zillow(df):
+    '''
+    
+    '''
+    # Removal of data that does not meet our requirement of being single unit or family homes
+    # Based on codes for 'propertylandusetypeid' column
+    not_single = [246, 248, 247, 267, 31]
+    # Removal from df
+    df = df[~df.propertylandusetypeid.isin(not_single)]
+    
