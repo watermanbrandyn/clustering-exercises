@@ -104,7 +104,8 @@ def nulls_by_rows(df):
 
 def prepare_zillow(df):
     '''
-    
+    This function takes in our acquired zillow dataframe, prepares and cleans the data and returns train, validate, and test dataframe splits. 
+    The main preparation is handling of nulls, eliminating unnecessary columns, and encoding the categorical columns. 
     '''
     # Removal of data that does not meet our requirement of being single unit or family homes
     # Based on codes for 'propertylandusetypeid' column
